@@ -10,184 +10,107 @@ datasource db {
 model User {
   id                String    @id @default(cuid())
   email             String    @unique
-  passwordHash      String
-  name              String
-  isAdmin           Boolean   @default(false)
-  isActive          Boolean   @default(true)
+  name              String?
+  password          String
+  role              String    @default("user")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-
   videos            Video[]
   clips             Clip[]
+  batches           Batch[]
   instagramConnections InstagramConnection[]
-  uploadBatches     UploadBatch[]
   jobLogs           JobLog[]
-
-  @@map("users")
 }
 
 model Video {
-  id            String    @id @default(cuid())
-  userId        String
-  youtubeUrl    String
-  title         String
-  description   String?
-  duration      Float?
-  status        String    @default("QUEUED")
-  storageKey    String?
-  thumbnailKey  String?
-  localPath     String?
-  fileSize      Int?
-  metadata      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clips         Clip[]
-  uploadBatches UploadBatch[]
-  jobLogs       JobLog[]
-
-  @@index([userId])
-  @@index([status])
-  @@map("videos")
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  youtubeUrl      String
+  title           String
+  description     String?
+  duration        Int?
+  thumbnailUrl    String?
+  filePath        String?
+  status          String    @default("pending")
+  fileSize        Int?
+  resolution      String?
+  fps             Float?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  clips           Clip[]
+  batchItems      BatchItem[]
 }
 
 model Clip {
-  id            String    @id @default(cuid())
-  videoId       String
-  userId        String
-  startTime     Float
-  endTime       Float
-  duration      Float
-  storageKey    String
-  localPath     String?
-  status        String    @default("QUEUED")
-  trimStart     Float     @default(0)
-  trimEnd       Float     @default(0)
-  title         String?
-  caption       String?
-  hashtags      String    @default("")
-  fileSize      Int?
-  thumbnailKey  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  videoId         String
+  video           Video     @relation(fields: [videoId], references: [id])
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  title           String
+  description     String?
+  filePath        String?
+  duration        Int?
+  startTime       Int?
+  endTime         Int?
+  status          String    @default("pending")
+  fileSize        Int?
+  instagramStatus String    @default("pending")
+  instagramMediaId String?
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
 
-  video         Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  uploadSchedules UploadSchedule[]
-  jobLogs       JobLog[]
+model Batch {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  name            String
+  status          String    @default("pending")
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  items           BatchItem[]
+}
 
-  @@index([videoId])
-  @@index([userId])
-  @@index([status])
-  @@map("clips")
+model BatchItem {
+  id              String    @id @default(cuid())
+  batchId         String
+  batch           Batch     @relation(fields: [batchId], references: [id])
+  videoId         String
+  video           Video     @relation(fields: [videoId], references: [id])
+  clipId          String?
+  status          String    @default("pending")
+  order           Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model InstagramConnection {
-  id                String    @id @default(cuid())
-  userId            String
-  instagramUserId   String
-  accessToken       String
-  tokenExpiresAt    DateTime?
-  username          String?
-  profilePictureUrl String?
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  uploadBatches     UploadBatch[]
-
-  @@unique([userId, instagramUserId])
-  @@index([userId])
-  @@map("instagram_connections")
-}
-
-model UploadBatch {
-  id                    String    @id @default(cuid())
-  userId                String
-  videoId               String
-  instagramConnectionId String
-  totalClips            Int       @default(0)
-  uploadedCount         Int       @default(0)
-  failedCount           Int       @default(0)
-  status                String    @default("QUEUED")
-  intervalMinutes       Int       @default(60)
-  startedAt             DateTime?
-  completedAt           DateTime?
-  metadata              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  video                 Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  instagramConnection   InstagramConnection @relation(fields: [instagramConnectionId], references: [id], onDelete: Cascade)
-  uploadSchedules       UploadSchedule[]
-
-  @@index([userId])
-  @@index([status])
-  @@map("upload_batches")
-}
-
-model UploadSchedule {
-  id                  String    @id @default(cuid())
-  batchId             String
-  clipId              String
-  scheduledAt         DateTime
-  status              String    @default("SCHEDULED")
-  instagramMediaId    String?
-  instagramPublishId  String?
-  errorMessage        String?
-  retryCount          Int       @default(0)
-  maxRetries          Int       @default(3)
-  lastAttemptAt       DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  batch               UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  clip                Clip      @relation(fields: [clipId], references: [id], onDelete: Cascade)
-
-  @@index([batchId])
-  @@index([clipId])
-  @@index([status])
-  @@index([scheduledAt])
-  @@map("upload_schedules")
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  accessToken     String
+  tokenType       String?
+  expiresAt       DateTime?
+  instagramUserId String?
+  username        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model JobLog {
-  id          String    @id @default(cuid())
-  userId      String
-  jobId       String
-  videoId     String?
-  clipId      String?
-  batchId     String?
-  event       String
-  status      String
-  message     String?
-  metadata    String?
-  createdAt   DateTime  @default(now())
-
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  video       Video?    @relation(fields: [videoId], references: [id], onDelete: SetNull)
-  clip        Clip?     @relation(fields: [clipId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([jobId])
-  @@index([videoId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("job_logs")
-}
-
-model MetadataConfig {
   id              String    @id @default(cuid())
-  userId          String    @unique
-  titles          String    @default("[]")
-  hashtags        String    @default("[]")
-  keywords        String    @default("[]")
-  defaultCaption  String?
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  jobId           String
+  jobType         String
+  status          String
+  message         String?
+  metadata        String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-
-  @@map("metadata_configs")
 }

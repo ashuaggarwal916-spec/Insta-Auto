@@ -119,6 +119,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/api/instagram/auth/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/instagram/auth">> = Specific
+  const handler = {} as typeof import("../../src/app/api/instagram/auth/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/api/instagram/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/instagram">> = Specific

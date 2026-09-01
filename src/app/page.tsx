@@ -15,8 +15,6 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
@@ -30,7 +28,7 @@ export default function Dashboard() {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/videos`, {
+      const res = await fetch('/api/videos', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`Failed to load videos (${res.status})`);
@@ -48,7 +46,7 @@ export default function Dashboard() {
     setSuccess('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/videos`, {
+      const res = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ youtubeUrl, title: videoName || 'Untitled Video' }),
@@ -72,7 +70,7 @@ export default function Dashboard() {
     setSuccess('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/clips/generate`, {
+      const res = await fetch('/api/clips/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ videoId, trimStart: 0, trimEnd: 0, clipCount: 5 }),
@@ -96,7 +94,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Sidebar */}
       <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col">
         <h1 className="text-2xl font-bold text-indigo-600 mb-8">Insta</h1>
         <nav className="space-y-2 flex-1">
@@ -118,7 +115,6 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 p-8">
         {error && <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{error}</div>}
         {success && <div className="bg-green-100 text-green-700 p-4 rounded-lg mb-4">{success}</div>}
@@ -197,7 +193,7 @@ export default function Dashboard() {
           <div>
             <h2 className="text-2xl font-semibold mb-6">Instagram Connection</h2>
             <a
-              href={`${API_URL}/api/instagram/auth`}
+              href="/api/instagram/auth"
               className="inline-block bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700"
             >
               Connect Instagram
