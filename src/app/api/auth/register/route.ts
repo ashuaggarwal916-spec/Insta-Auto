@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     if (existing) return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
     
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({ data: { email, passwordHash, name } });
+    const user = await prisma.user.create({ data: { email, password: passwordHash, name } });
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '7d' });
     return NextResponse.json({ token, user: { id: user.id, email: user.email, name: user.name } });
   } catch (err: any) {

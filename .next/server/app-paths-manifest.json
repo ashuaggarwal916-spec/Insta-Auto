@@ -1,9 +1,15 @@
 {
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
   "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/videos/route": "app/api/videos/route.js",
-  "/api/logs/route": "app/api/logs/route.js",
+  "/api/admin/users/route": "app/api/admin/users/route.js",
   "/api/auth/register/route": "app/api/auth/register/route.js",
+  "/api/batches/route": "app/api/batches/route.js",
   "/api/clips/generate/route": "app/api/clips/generate/route.js",
   "/api/instagram/auth/route": "app/api/instagram/auth/route.js",
+  "/api/instagram/route": "app/api/instagram/route.js",
+  "/api/logs/route": "app/api/logs/route.js",
+  "/api/videos/route": "app/api/videos/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/login/page": "app/login/page.js",
   "/page": "app/page.js"
 }

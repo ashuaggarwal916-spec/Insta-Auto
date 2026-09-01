@@ -52,25 +52,31 @@ export async function POST(request: NextRequest) {
     const userRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,username&access_token=${tokenData.access_token}`);
     const userData = await userRes.json();
 
-    // Save connection
-    await prisma.instagramConnection.upsert({
-      where: { userId },
-      update: {
-        accessToken: tokenData.access_token,
-        tokenType: tokenData.token_type,
-        expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
-        instagramUserId: userData.id,
-        username: userData.username,
-      },
-      create: {
-        userId,
-        accessToken: tokenData.access_token,
-        tokenType: tokenData.token_type,
-        expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
-        instagramUserId: userData.id,
-        username: userData.username,
-      },
-    });
+    // Save connection - find existing or create new
+    const existing = await prisma.instagramConnection.findFirst({ where: { userId } });
+    if (existing) {
+      await prisma.instagramConnection.update({
+        where: { id: existing.id },
+        data: {
+          accessToken: tokenData.access_token,
+          tokenType: tokenData.token_type,
+          expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
+          instagramUserId: userData.id,
+          username: userData.username,
+        },
+      });
+    } else {
+      await prisma.instagramConnection.create({
+        data: {
+          userId,
+          accessToken: tokenData.access_token,
+          tokenType: tokenData.token_type,
+          expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
+          instagramUserId: userData.id,
+          username: userData.username,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, username: userData.username });
   } catch (err: any) {
@@ -83,7 +89,7 @@ export async function PUT(request: NextRequest) {
   const userId = await getUserId(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const connection = await prisma.instagramConnection.findUnique({
+  const connection = await prisma.instagramConnection.findFirst({
     where: { userId },
   });
 
@@ -99,7 +105,7 @@ export async function DELETE(request: NextRequest) {
   const userId = await getUserId(request);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  await prisma.instagramConnection.delete({
+  await prisma.instagramConnection.deleteMany({
     where: { userId },
   });
 

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!user || user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' }, include: { _count: { select: { videos: true, clips: true } } } });
     return NextResponse.json(users);
   } catch (err: any) {
