@@ -1,5 +1,4 @@
-// GitHub Actions Worker - processes ONE job per run
-// This runs on GitHub's servers, not on EC2 or Vercel
+// GitHub Actions Worker - processes multiple jobs per run
 const YT_DLP = '/usr/local/bin/yt-dlp';
 const FFMPEG = '/usr/bin/ffmpeg';
 const FFPROBE = '/usr/bin/ffprobe';
@@ -12,6 +11,7 @@ const execAsync = promisify(exec);
 const WORK_DIR = '/tmp/insta-worker';
 const API_BASE = 'https://instamovie.duckdns.org';
 const WORKER_SECRET = process.env.WORKER_SECRET;
+const MAX_JOBS = parseInt(process.env.MAX_JOBS || '5');
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -89,7 +89,6 @@ async function createClips(videoId, inputPath, totalDuration, clipCount, clipDur
     const clipHashtags = pickRandom(baseHashtags, 5);
     const clipKeywords = pickRandom(baseKeywords, 8);
 
-    // Save clip via Vercel API
     await fetch(`${API_BASE}/api/clips/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${WORKER_SECRET}` },
@@ -136,7 +135,6 @@ async function processJob(job) {
     return;
   }
 
-  // Update status to processing
   await fetch(`${API_BASE}/api/jobs/update`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${WORKER_SECRET}` },
@@ -145,7 +143,6 @@ async function processJob(job) {
 
   const inputPath = join(WORK_DIR, videoId, 'input.mp4');
   
-  // Download
   let totalDuration = 0;
   try {
     totalDuration = await downloadVideo(videoId, youtubeUrl, inputPath);
@@ -170,7 +167,6 @@ async function processJob(job) {
     return;
   }
 
-  // Create clips
   try {
     const clipsCreated = await createClips(videoId, inputPath, totalDuration, clipCount, clipDuration, [], [], []);
     
@@ -197,27 +193,29 @@ async function processJob(job) {
 }
 
 async function main() {
-  console.log('GitHub Actions Worker starting...');
+  console.log(`GitHub Actions Worker starting (max ${MAX_JOBS} jobs)...`);
   await mkdir(WORK_DIR, { recursive: true });
 
-  // Get one pending job
-  const res = await fetch(`${API_BASE}/api/jobs/pending`, {
-    headers: { Authorization: `Bearer ${WORKER_SECRET}` },
-  });
-  
-  if (!res.ok) {
-    console.error('Failed to fetch jobs:', res.status);
-    process.exit(1);
-  }
-  
-  const data = await res.json();
-  if (!data.job) {
-    console.log('No pending jobs');
-    process.exit(0);
-  }
+  for (let i = 0; i < MAX_JOBS; i++) {
+    const res = await fetch(`${API_BASE}/api/jobs/pending`, {
+      headers: { Authorization: `Bearer ${WORKER_SECRET}` },
+    });
+    
+    if (!res.ok) {
+      console.error('Failed to fetch jobs:', res.status);
+      process.exit(1);
+    }
+    
+    const data = await res.json();
+    if (!data.job) {
+      console.log('No more pending jobs');
+      break;
+    }
 
-  console.log(`Processing job ${data.job.id} (${data.job.type})`);
-  await processJob(data.job);
+    console.log(`Processing job ${data.job.id} (${data.job.type}) - ${i + 1}/${MAX_JOBS}`);
+    await processJob(data.job);
+  }
+  
   console.log('Done');
 }
 

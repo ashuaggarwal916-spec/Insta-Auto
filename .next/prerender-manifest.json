@@ -98,30 +98,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/terms": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/terms",
-      "dataRoute": "/terms.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/privacy": {
       "experimentalBypassFor": [
         {
@@ -145,13 +121,37 @@
         "x-next-revalidated-tags",
         "x-next-revalidate-tag-token"
       ]
+    },
+    "/terms": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/terms",
+      "dataRoute": "/terms.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
     }
   },
   "dynamicRoutes": {},
   "notFoundRoutes": [],
   "preview": {
-    "previewModeId": "9a767c6e036f6e1b0395a79fb6994ce3",
-    "previewModeSigningKey": "d9f8872c5665691a75cea7da98430a968b65556fc851d7280efa419aaa478ebd",
-    "previewModeEncryptionKey": "2d6e090066c383c8bc4b5c1bf28326ad6392970e25301a66bbb2098a8a8a109f"
+    "previewModeId": "879cfcf06c0bdf4202d8619f00cf65ef",
+    "previewModeSigningKey": "a96410e777668df0be0ffbdf9521648d63c12e6f24f69aead8d47bae6b6bc5ff",
+    "previewModeEncryptionKey": "7c159324b6bdb4ec5283adaad2611fba1566846bdc0a6cc966cd004acb8d16db"
   }
 }

@@ -1,8 +1,8 @@
 name: Insta Video Worker
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes
-  workflow_dispatch:  # Allow manual trigger
+    - cron: '*/3 * * * *'  # Every 3 minutes
+  workflow_dispatch:
 
 jobs:
   process-videos:
@@ -18,21 +18,17 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install yt-dlp
+      - name: Install dependencies
         run: |
-          curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-          chmod +x /usr/local/bin/yt-dlp
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+          sudo chmod +x /usr/local/bin/yt-dlp
           yt-dlp --version
-      
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
           ffmpeg -version | head -1
       
-      - name: Start worker
+      - name: Run worker (process up to 5 jobs)
+        run: node worker-github.cjs
         env:
           WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
-        run: |
-          node worker-github.cjs
-        timeout-minutes: 25
+          MAX_JOBS: 5
