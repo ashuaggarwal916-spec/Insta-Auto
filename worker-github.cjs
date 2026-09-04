@@ -1,4 +1,4 @@
-// GitHub Actions Worker - processes multiple jobs per run
+// GitHub Actions Worker - ULTRA FAST - processes jobs continuously until none left
 const YT_DLP = '/usr/local/bin/yt-dlp';
 const FFMPEG = '/usr/bin/ffmpeg';
 const FFPROBE = '/usr/bin/ffprobe';
@@ -11,7 +11,7 @@ const execAsync = promisify(exec);
 const WORK_DIR = '/tmp/insta-worker';
 const API_BASE = 'https://instamovie.duckdns.org';
 const WORKER_SECRET = process.env.WORKER_SECRET;
-const MAX_JOBS = parseInt(process.env.MAX_JOBS || '5');
+const CONCURRENT_JOBS = 3; // Process 3 videos in parallel
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -48,9 +48,10 @@ async function downloadVideo(videoId, youtubeUrl, inputPath) {
   const videoDir = join(WORK_DIR, videoId);
   await mkdir(videoDir, { recursive: true });
 
-  const cmd = `${YT_DLP} -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${inputPath}" "${youtubeUrl}" --no-check-certificates --no-warnings --no-playlist 2>&1`;
+  // ULTRA FAST: Use best format, no conversion, direct download
+  const cmd = `${YT_DLP} -f "best[ext=mp4]/best" -o "${inputPath}" "${youtubeUrl}" --no-check-certificates --no-warnings --no-playlist --downloader aria2c --downloader-args "aria2c:-x 16 -s 16 -k 1M" 2>&1`;
   
-  await execAsync(cmd, { timeout: 300000 });
+  await execAsync(cmd, { timeout: 120000 });
 
   if (!await fileExists(inputPath)) {
     throw new Error('Download completed but file not found');
@@ -73,42 +74,45 @@ async function createClips(videoId, inputPath, totalDuration, clipCount, clipDur
   const baseHashtags = userHashtags?.length > 0 ? userHashtags : generateHashtags();
   const baseKeywords = userKeywords?.length > 0 ? userKeywords : generateKeywords();
 
-  let clipsCreated = 0;
-
+  // Create all clips in parallel for speed
+  const clipPromises = [];
   for (let i = 0; i < clipCount; i++) {
     const maxStart = Math.max(0, totalDuration - clipDuration);
     const startTime = randomInt(0, maxStart);
     const endTime = Math.min(startTime + clipDuration, totalDuration);
     const outputPath = join(workDir, `clip-${i + 1}.mp4`);
 
-    try {
-      await execAsync(`${FFMPEG} -y -threads 0 -i "${inputPath}" -ss ${startTime} -t ${endTime - startTime} -c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 128k -movflags +faststart "${outputPath}" 2>&1`);
-    } catch { continue; }
+    // ULTRA FAST: copy codec, no re-encoding, just remux
+    const cmd = `${FFMPEG} -y -threads 0 -ss ${startTime} -i "${inputPath}" -t ${endTime - startTime} -c copy -movflags +faststart "${outputPath}" 2>&1`;
+    
+    clipPromises.push(
+      execAsync(cmd, { timeout: 60000 }).then(async () => {
+        const clipTitle = pickRandom(baseTitles, 1)[0];
+        const clipHashtags = pickRandom(baseHashtags, 5);
+        const clipKeywords = pickRandom(baseKeywords, 8);
 
-    const clipTitle = pickRandom(baseTitles, 1)[0];
-    const clipHashtags = pickRandom(baseHashtags, 5);
-    const clipKeywords = pickRandom(baseKeywords, 8);
-
-    await fetch(`${API_BASE}/api/clips/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${WORKER_SECRET}` },
-      body: JSON.stringify({
-        videoId,
-        title: clipTitle,
-        filePath: outputPath,
-        duration: endTime - startTime,
-        startTime,
-        endTime,
-        hashtags: clipHashtags,
-        keywords: clipKeywords,
-        titles: baseTitles,
-      }),
-    });
-
-    clipsCreated++;
+        await fetch(`${API_BASE}/api/clips/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${WORKER_SECRET}` },
+          body: JSON.stringify({
+            videoId,
+            title: clipTitle,
+            filePath: outputPath,
+            duration: endTime - startTime,
+            startTime,
+            endTime,
+            hashtags: clipHashtags,
+            keywords: clipKeywords,
+            titles: baseTitles,
+          }),
+        });
+        return true;
+      }).catch(() => false)
+    );
   }
 
-  return clipsCreated;
+  const results = await Promise.all(clipPromises);
+  return results.filter(Boolean).length;
 }
 
 async function processJob(job) {
@@ -193,30 +197,40 @@ async function processJob(job) {
 }
 
 async function main() {
-  console.log(`GitHub Actions Worker starting (max ${MAX_JOBS} jobs)...`);
+  console.log(`GitHub Actions Worker starting (concurrent: ${CONCURRENT_JOBS})...`);
   await mkdir(WORK_DIR, { recursive: true });
 
-  for (let i = 0; i < MAX_JOBS; i++) {
-    const res = await fetch(`${API_BASE}/api/jobs/pending`, {
-      headers: { Authorization: `Bearer ${WORKER_SECRET}` },
-    });
-    
-    if (!res.ok) {
-      console.error('Failed to fetch jobs:', res.status);
-      process.exit(1);
+  let totalProcessed = 0;
+  
+  while (true) {
+    // Get multiple pending jobs
+    const jobs = [];
+    for (let i = 0; i < CONCURRENT_JOBS; i++) {
+      const res = await fetch(`${API_BASE}/api/jobs/pending`, {
+        headers: { Authorization: `Bearer ${WORKER_SECRET}` },
+      });
+      
+      if (!res.ok) {
+        console.error('Failed to fetch jobs:', res.status);
+        break;
+      }
+      
+      const data = await res.json();
+      if (!data.job) break;
+      jobs.push(data.job);
     }
-    
-    const data = await res.json();
-    if (!data.job) {
+
+    if (jobs.length === 0) {
       console.log('No more pending jobs');
       break;
     }
 
-    console.log(`Processing job ${data.job.id} (${data.job.type}) - ${i + 1}/${MAX_JOBS}`);
-    await processJob(data.job);
+    console.log(`Processing ${jobs.length} jobs in parallel...`);
+    await Promise.all(jobs.map(job => processJob(job)));
+    totalProcessed += jobs.length;
   }
   
-  console.log('Done');
+  console.log(`Done. Total processed: ${totalProcessed}`);
 }
 
 main().catch(err => {
