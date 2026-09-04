@@ -1,25 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret",
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "NEXTAUTH_URL": "@nextauth_url",
-    "NEXT_PUBLIC_SITE_URL": "@site_url",
-    "INSTAGRAM_APP_ID": "@instagram_app_id",
-    "INSTAGRAM_APP_SECRET": "@instagram_app_secret",
-    "INSTAGRAM_REDIRECT_URI": "@instagram_redirect_uri"
-  }
+  "framework": "nextjs",
+  "buildCommand": "prisma generate && next build"
 }

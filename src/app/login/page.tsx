@@ -12,43 +12,27 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     try {
-      if (isLogin) {
-        const res = await fetch(`${API_URL}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Login failed');
-        }
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const body = isLogin ? { email, password } : { email, password, name };
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
         const data = await res.json();
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        router.push('/');
-      } else {
-        const res = await fetch(`${API_URL}/api/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Registration failed');
-        }
-        const data = await res.json();
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        router.push('/');
+        throw new Error(data.error || (isLogin ? 'Login failed' : 'Registration failed'));
       }
+      const data = await res.json();
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      router.push('/');
     } catch (err: any) {
       setError(err.message);
     }
@@ -56,11 +40,39 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center text-indigo-600 mb-2">Insta</h1>
-        <p className="text-center text-gray-500 mb-8">Video Automation Platform</p>
-        
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse" />
+      </div>
+
+      <div className="glass-card rounded-3xl p-8 w-full max-w-md relative z-10">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+            <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <h1 className="text-3xl font-bold text-gradient">Insta</h1>
+          <p className="text-sm text-white/40 mt-1">Video Automation Platform</p>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-1 bg-white/5 rounded-xl mb-6">
+          <button
+            onClick={() => { setIsLogin(true); setError(''); }}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${isLogin ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30' : 'text-white/40 hover:text-white/60'}`}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => { setIsLogin(false); setError(''); }}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${!isLogin ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30' : 'text-white/40 hover:text-white/60'}`}
+          >
+            Register
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <input
@@ -69,7 +81,7 @@ export default function Login() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="w-full p-3.5 glass-input rounded-xl text-sm text-white placeholder-white/25 outline-none"
             />
           )}
           <input
@@ -78,7 +90,7 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+            className="w-full p-3.5 glass-input rounded-xl text-sm text-white placeholder-white/25 outline-none"
           />
           <input
             type="password"
@@ -87,23 +99,28 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+            className="w-full p-3.5 glass-input rounded-xl text-sm text-white placeholder-white/25 outline-none"
           />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button 
-            type="submit" 
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm flex items-center gap-2">
+              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+            className="w-full btn-premium py-3.5 text-white rounded-xl font-medium text-sm disabled:opacity-50"
           >
-            {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Register')}
+            {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
-        
-        <p className="text-center mt-4 text-sm text-gray-500">
+
+        <p className="text-center mt-6 text-sm text-white/30">
           {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button 
-            onClick={() => { setIsLogin(!isLogin); setError(''); }} 
-            className="text-indigo-600 font-medium"
+          <button
+            onClick={() => { setIsLogin(!isLogin); setError(''); }}
+            className="text-purple-400 font-medium hover:text-purple-300 transition-colors"
           >
             {isLogin ? 'Register' : 'Sign In'}
           </button>

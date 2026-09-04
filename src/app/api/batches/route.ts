@@ -10,44 +10,116 @@ async function getUserId(req: NextRequest): Promise<string | null> {
   return payload?.userId || null;
 }
 
-export async function POST(request: NextRequest) {
-  const userId = await getUserId(request);
+// POST /api/batches - Create a batch of clips for publishing
+export async function POST(req: NextRequest) {
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { name, videoIds, scheduledAt } = await request.json();
-  if (!name || !videoIds?.length) {
-    return NextResponse.json({ error: 'name and videoIds required' }, { status: 400 });
+  const { name, clipIds, intervalSeconds = 30 } = await req.json();
+  if (!clipIds?.length) {
+    return NextResponse.json({ error: 'name and clipIds required' }, { status: 400 });
   }
+
+  // Get clips to fetch videoId
+  const clips = await prisma.clip.findMany({
+    where: { id: { in: clipIds }, userId },
+    select: { id: true, videoId: true },
+  });
 
   const batch = await prisma.batch.create({
     data: {
       userId,
       name,
       status: 'pending',
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       items: {
-        create: videoIds.map((videoId: string, index: number) => ({
-          videoId,
-          order: index,
-          status: 'pending',
-        })),
+        create: clipIds.map((clipId: string, idx: number) => {
+          const clip = clips.find(c => c.id === clipId);
+          return {
+            videoId: clip?.videoId || '',
+            clipId,
+            order: idx,
+            status: 'pending',
+          };
+        }),
       },
     },
-    include: { items: true },
   });
 
-  return NextResponse.json(batch);
+  return NextResponse.json({ batch });
 }
 
-export async function GET(request: NextRequest) {
-  const userId = await getUserId(request);
+// GET /api/batches - List user's batches
+export async function GET(req: NextRequest) {
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const batches = await prisma.batch.findMany({
     where: { userId },
-    include: { items: { include: { video: true } } },
+    include: {
+      items: {
+        include: {
+          video: true,
+        },
+        orderBy: { order: 'asc' },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   });
 
   return NextResponse.json(batches);
+}
+
+// PATCH /api/batches - Start, pause, or stop a batch
+export async function PATCH(req: NextRequest) {
+  const userId = await getUserId(req);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { batchId, action } = await req.json();
+  if (!batchId || !action) {
+    return NextResponse.json({ error: 'batchId and action required' }, { status: 400 });
+  }
+
+  const batch = await prisma.batch.findFirst({
+    where: { id: batchId, userId },
+    include: { items: { include: { video: true } } },
+  });
+
+  if (!batch) return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
+
+  if (action === 'start') {
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { status: 'running' },
+    });
+  } else if (action === 'pause') {
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { status: 'paused' },
+    });
+  } else if (action === 'stop') {
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { status: 'stopped' },
+    });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
+// DELETE /api/batches - Delete a batch
+export async function DELETE(req: NextRequest) {
+  const userId = await getUserId(req);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { batchId } = await req.json();
+  if (!batchId) return NextResponse.json({ error: 'batchId required' }, { status: 400 });
+
+  await prisma.batchItem.deleteMany({
+    where: { batch: { id: batchId, userId } },
+  });
+  await prisma.batch.deleteMany({
+    where: { id: batchId, userId },
+  });
+
+  return NextResponse.json({ success: true });
 }

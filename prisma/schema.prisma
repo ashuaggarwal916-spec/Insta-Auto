@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -20,22 +20,28 @@ model User {
   batches           Batch[]
   instagramConnections InstagramConnection[]
   jobLogs           JobLog[]
+  schedules         Schedule[]
+  jobs              Job[]
 }
 
 model Video {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   youtubeUrl      String
   title           String
   description     String?
   duration        Int?
   thumbnailUrl    String?
   filePath        String?
+  fileKey         String?
   status          String    @default("pending")
   fileSize        Int?
   resolution      String?
   fps             Float?
+  titles          String[]  @default([])
+  hashtags        String[]  @default([])
+  keywords        String[]  @default([])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   clips           Clip[]
@@ -45,12 +51,13 @@ model Video {
 model Clip {
   id              String    @id @default(cuid())
   videoId         String
-  video           Video     @relation(fields: [videoId], references: [id])
+  video           Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title           String
   description     String?
   filePath        String?
+  fileKey         String?
   duration        Int?
   startTime       Int?
   endTime         Int?
@@ -59,14 +66,18 @@ model Clip {
   instagramStatus String    @default("pending")
   instagramMediaId String?
   publishedAt     DateTime?
+  titles          String[]  @default([])
+  hashtags        String[]  @default([])
+  keywords        String[]  @default([])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  batchItems      BatchItem[]
 }
 
 model Batch {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   status          String    @default("pending")
   scheduledAt     DateTime?
@@ -79,33 +90,65 @@ model Batch {
 model BatchItem {
   id              String    @id @default(cuid())
   batchId         String
-  batch           Batch     @relation(fields: [batchId], references: [id])
+  batch           Batch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
   videoId         String
-  video           Video     @relation(fields: [videoId], references: [id])
+  video           Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
   clipId          String?
+  clip            Clip?     @relation(fields: [clipId], references: [id], onDelete: SetNull)
   status          String    @default("pending")
   order           Int
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
 
-model InstagramConnection {
+model Schedule {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  accessToken     String
-  tokenType       String?
-  expiresAt       DateTime?
-  instagramUserId String?
-  username        String?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  clipIds         String[]
+  intervalSeconds Int       @default(30)
+  status          String    @default("pending")
+  scheduledAt     DateTime
+  startedAt       DateTime?
+  completedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model Job {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String
+  status          String    @default("pending")
+  data            String?
+  result          String?
+  error           String?
+  progress        Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model InstagramConnection {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken       String
+  tokenType         String?
+  expiresAt         DateTime?
+  instagramUserId   String?
+  username          String?
+  facebookPageId    String?
+  pageAccessToken   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model JobLog {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobId           String
   jobType         String
   status          String
